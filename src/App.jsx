@@ -7,18 +7,35 @@ const getTodayDate = () => {
   return today.toLocaleDateString(); // Format: MM/DD/YYYY
 };
 
+// Helper function to get CSRF token from cookies
+const getCsrfToken = () => {
+  const csrfToken = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrftoken='))
+    ?.split('=')[1];
+  return csrfToken;
+};
+
 const App = () => {
   const [tasks, setTasks] = useState([]);
   const [message, setMessage] = useState('');
   const [checked, setChecked] = useState(false);
 
+  const axiosInstance = axios.create({
+    headers: {
+      'X-CSRFToken': getCsrfToken(),
+    },
+    withCredentials: true,  // Ensure cookies are sent with requests
+  });
+
   // Fetch the todo list from the API
   const fetchTasks = async () => {
     try {
-      const response = await axios.get('https://abhi2200.pythonanywhere.com/api/todo/');
+      const response = await axiosInstance.get('https://abhi2200.pythonanywhere.com/api/todo/');
       setTasks(response.data.tasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      alert('Failed to fetch tasks. Please try again.');
     }
   };
 
@@ -26,40 +43,43 @@ const App = () => {
   const addTask = async () => {
     if (message) {
       try {
-        await axios.post('https://abhi2200.pythonanywhere.com/api/todo/', {
+        await axiosInstance.post('https://abhi2200.pythonanywhere.com/api/todo/', {
           message,
         });
         setMessage('');
         fetchTasks();
       } catch (error) {
         console.error('Error adding task:', error);
+        alert('Failed to add task. Please try again.');
       }
     }
   };
 
   // Delete a task
-  const deleteTask = async (index) => {
+  const deleteTask = async (taskId) => {
     try {
-      await axios.delete('https://abhi2200.pythonanywhere.com/api/todo/', {
-        data: { index },
+      await axiosInstance.delete('https://abhi2200.pythonanywhere.com/api/todo/', {
+        data: { id: taskId },
       });
       fetchTasks();
     } catch (error) {
       console.error('Error deleting task:', error);
+      alert('Failed to delete task. Please try again.');
     }
   };
 
   // Update a task
-  const updateTask = async (index, updatedMessage) => {
+  const updateTask = async (taskId, updatedMessage) => {
     if (updatedMessage) {
       try {
-        await axios.patch('https://abhi2200.pythonanywhere.com/api/todo/', {
-          index,
+        await axiosInstance.patch('https://abhi2200.pythonanywhere.com/api/todo/', {
+          id: taskId,
           message: updatedMessage,
         });
         fetchTasks();
       } catch (error) {
         console.error('Error updating task:', error);
+        alert('Failed to update task. Please try again.');
       }
     }
   };
@@ -93,8 +113,8 @@ const App = () => {
           {tasks.map((task, index) => (
             <li key={index}>
               <span>{task.message}</span>
-              <button onClick={() => deleteTask(index)}>Delete</button>
-              <button onClick={() => updateTask(index, prompt('Update task:', task.message))}>Edit</button>
+              <button onClick={() => deleteTask(task.id)}>Delete</button>
+              <button onClick={() => updateTask(task.id, prompt('Update task:', task.message))}>Edit</button>
             </li>
           ))}
         </ul>
